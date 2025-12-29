@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mágica do Anel – Lançamento</title>
+
+<style>
+html,body{
+  margin:0;
+  width:100%;
+  height:100%;
+  background:black;
+  overflow:hidden;
+  touch-action:none;
+}
+
+#stage{
+  width:100vw;
+  height:100vh;
+  position:relative;
+}
+
+#anel{
+  width:250px;   /* 🔧 TAMANHO DO ANEL */
+  height:250px;
+  position:absolute;
+  display:none;
+  background:no-repeat center;
+  background-size:contain;
+  filter:drop-shadow(0 0 20px gold);
+  pointer-events:none;
+}
+
+#fullscreenBtn{
+  position:fixed;
+  top:15px;
+  right:15px;
+  padding:10px 14px;
+  background:rgba(255,255,255,0.15);
+  color:white;
+  border:1px solid rgba(255,255,255,0.3);
+  border-radius:8px;
+  font-size:13px;
+  z-index:999;
+}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <audio id="som" src="magica.mp3" preload="auto"></audio>
+  <div id="anel"></div>
+</div>
+
+<button id="fullscreenBtn">Tela cheia</button>
+
+<script>
+/* ===============================
+   CONFIGURAÇÕES
+   =============================== */
+const IMG_INICIAL = 'ring2.png';
+const IMG_FINAL   = 'ring.png';
+const TEMPO_TRANSFORMACAO = 2000;
+const ATRITO = 0.98;
+
+/* =============================== */
+const anel = document.getElementById('anel');
+const som = document.getElementById('som');
+const fsBtn = document.getElementById('fullscreenBtn');
+
+let estado = 0; // 0=oculto | 1=ring2 | 2=ring final
+let segurando = false;
+let bloquearToque = true; // evita toque do botão fullscreen
+
+let pos = {x:0,y:0};
+let vel = {x:0,y:0};
+let ultimo = {x:0,y:0};
+
+function render(){
+  const r = anel.offsetWidth/2;
+  anel.style.left = (pos.x - r) + 'px';
+  anel.style.top  = (pos.y - r) + 'px';
+}
+
+function mostrarInicial(x,y){
+  anel.style.display='block';
+  anel.style.backgroundImage = `url('${IMG_INICIAL}')`;
+  pos.x=x; pos.y=y;
+  render();
+  estado=1;
+}
+
+function transformar(){
+  anel.style.transition='opacity 0.4s ease';
+  anel.style.opacity='0';
+  setTimeout(()=>{
+    anel.style.backgroundImage = `url('${IMG_FINAL}')`;
+    anel.style.opacity='1';
+    anel.style.transition='none';
+    estado=2;
+  },400);
+}
+
+function fisica(){
+  if(segurando || estado!==2) return;
+  pos.x+=vel.x;
+  pos.y+=vel.y;
+  vel.x*=ATRITO;
+  vel.y*=ATRITO;
+  render();
+  if(pos.x<-150||pos.x>innerWidth+150||pos.y<-150||pos.y>innerHeight+150){
+    som.currentTime=0;
+    som.play();
+    anel.style.display='none';
+    estado=0;
+    return;
+  }
+  requestAnimationFrame(fisica);
+}
+
+/* ===============================
+   TOQUE
+   =============================== */
+document.addEventListener('touchstart',e=>{
+  if(bloquearToque) return;
+  const t=e.touches[0];
+  if(estado===0){
+    mostrarInicial(t.clientX,t.clientY);
+  }else if(estado===1){
+    setTimeout(transformar,TEMPO_TRANSFORMACAO);
+  }
+  segurando=true;
+  ultimo.x=t.clientX;
+  ultimo.y=t.clientY;
+});
+
+document.addEventListener('touchmove',e=>{
+  if(!segurando||estado!==2) return;
+  const t=e.touches[0];
+  vel.x=t.clientX-ultimo.x;
+  vel.y=t.clientY-ultimo.y;
+  pos.x=t.clientX;
+  pos.y=t.clientY;
+  ultimo.x=t.clientX;
+  ultimo.y=t.clientY;
+  render();
+});
+
+document.addEventListener('touchend',()=>{
+  segurando=false;
+  if(estado===2) requestAnimationFrame(fisica);
+});
+
+/* ===============================
+   FULLSCREEN (CORRETO)
+   =============================== */
+fsBtn.addEventListener('click',()=>{
+  const el=document.documentElement;
+  if(el.requestFullscreen) el.requestFullscreen();
+  else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  fsBtn.style.display='none';
+  setTimeout(()=>{bloquearToque=false;},500);
+});
+</script>
+</body>
+</html>
+
